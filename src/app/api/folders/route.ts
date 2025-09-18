@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
-import path from 'path';
 
-// 서비스 계정 키 파일 경로
-const SERVICE_ACCOUNT_FILE = path.join(process.cwd(), 'credentials.json');
 const SCOPES = ['https://www.googleapis.com/auth/drive.readonly'];
 
 // News_Summaries 폴더 ID (환경 변수로 설정 가능)
@@ -17,8 +14,21 @@ interface DateFolder {
 
 // Google Drive 클라이언트 초기화
 async function getDriveService() {
+  const credentials = {
+    type: 'service_account',
+    project_id: process.env.GOOGLE_PROJECT_ID,
+    private_key_id: process.env.GOOGLE_PRIVATE_KEY_ID,
+    private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+    client_email: process.env.GOOGLE_CLIENT_EMAIL,
+    client_id: process.env.GOOGLE_CLIENT_ID,
+    auth_uri: 'https://accounts.google.com/o/oauth2/auth',
+    token_uri: 'https://oauth2.googleapis.com/token',
+    auth_provider_x509_cert_url: 'https://www.googleapis.com/oauth2/v1/certs',
+    client_x509_cert_url: `https://www.googleapis.com/robot/v1/metadata/x509/${encodeURIComponent(process.env.GOOGLE_CLIENT_EMAIL || '')}`,
+  };
+
   const auth = new google.auth.GoogleAuth({
-    keyFile: SERVICE_ACCOUNT_FILE,
+    credentials,
     scopes: SCOPES,
   });
 
@@ -95,7 +105,35 @@ export async function GET(
   _request: NextRequest
 ) {
   try {
+    // 환경 변수 확인
+    if (!NEWS_SUMMARIES_FOLDER_ID) {
+      return NextResponse.json({ 
+        error: 'NEWS_SUMMARIES_FOLDER_ID 환경 변수가 설정되지 않았습니다.',
+        debug: {
+          hasProjectId: !!process.env.GOOGLE_PROJECT_ID,
+          hasClientEmail: !!process.env.GOOGLE_CLIENT_EMAIL,
+          hasPrivateKey: !!process.env.GOOGLE_PRIVATE_KEY,
+        }
+      }, { status: 500 });
+    }
+
     const drive = await getDriveService();
+    
+    // 먼저 폴더가 존재하는지 확인
+    try {
+      const folderCheck = await drive.files.get({
+        fileId: NEWS_SUMMARIES_FOLDER_ID,
+        fields: 'id,name'
+      });
+      
+      console.log('Parent folder found:', folderCheck.data.name);
+    } catch (folderError) {
+      console.error('Parent folder access error:', folderError);
+      return NextResponse.json({ 
+        error: `폴더 접근 권한이 없거나 존재하지 않습니다. 폴더 ID: ${NEWS_SUMMARIES_FOLDER_ID}`,
+        details: folderError instanceof Error ? folderError.message : 'Unknown error'
+      }, { status: 404 });
+    }
     
     // News_Summaries 폴더 하위의 모든 폴더 가져오기
     const response = await drive.files.list({
@@ -105,6 +143,9 @@ export async function GET(
     });
 
     const allFolders = response.data.files || [];
+    
+    // 디버깅 정보 출력
+    console.log(`Found ${allFolders.length} folders in parent folder`);
     
     // 날짜 형식 폴더만 필터링
     const dateFolders: DateFolder[] = allFolders
@@ -118,16 +159,25 @@ export async function GET(
     // 날짜 순으로 정렬
     const sortedFolders = sortDateFolders(dateFolders);
 
+    console.log(`Filtered to ${sortedFolders.length} date folders`);
+
     return NextResponse.json({ 
       folders: sortedFolders,
       totalFolders: sortedFolders.length,
+      debug: {
+        parentFolderId: NEWS_SUMMARIES_FOLDER_ID,
+        totalFound: allFolders.length,
+        dateFiltered: sortedFolders.length,
+        allFolderNames: allFolders.map(f => f.name).slice(0, 10) // 처음 10개만
+      }
     });
 
   } catch (error) {
     console.error('Error in date folders API:', error);
     return NextResponse.json({ 
       error: '날짜 폴더를 가져오는 중 오류가 발생했습니다.',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
     }, { status: 500 });
   }
 }
