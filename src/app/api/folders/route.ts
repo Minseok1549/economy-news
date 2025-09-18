@@ -31,26 +31,26 @@ async function getDriveService() {
   console.log('Environment variables check:', envVars);
 
   // 필수 환경 변수 검증
-  const requiredVars = ['GOOGLE_PROJECT_ID', 'GOOGLE_CLIENT_EMAIL'];
+  const requiredVars = ['GOOGLE_PROJECT_ID', 'GOOGLE_CLIENT_EMAIL', 'GOOGLE_PRIVATE_KEY'];
   const missing = requiredVars.filter(varName => !process.env[varName]);
   
   if (missing.length > 0) {
     throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
   }
 
-  // Private key 처리 - Base64 버전이 있으면 우선 사용
+  // Private key 처리 - 기존 GOOGLE_PRIVATE_KEY를 우선 사용
   let privateKey: string;
-  if (process.env.GOOGLE_PRIVATE_KEY_BASE64) {
+  if (process.env.GOOGLE_PRIVATE_KEY) {
+    privateKey = process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n');
+    console.log('Using regular GOOGLE_PRIVATE_KEY');
+  } else if (process.env.GOOGLE_PRIVATE_KEY_BASE64) {
     try {
       privateKey = Buffer.from(process.env.GOOGLE_PRIVATE_KEY_BASE64, 'base64').toString('utf8');
-      console.log('Using Base64 encoded private key');
+      console.log('Using Base64 encoded private key (fallback)');
     } catch (error) {
       console.error('Error decoding Base64 private key:', error);
       throw new Error('Invalid Base64 private key');
     }
-  } else if (process.env.GOOGLE_PRIVATE_KEY) {
-    privateKey = process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n');
-    console.log('Using regular private key');
   } else {
     throw new Error('No private key found (neither GOOGLE_PRIVATE_KEY nor GOOGLE_PRIVATE_KEY_BASE64)');
   }
