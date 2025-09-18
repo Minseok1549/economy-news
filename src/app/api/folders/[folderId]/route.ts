@@ -1,0 +1,97 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { google } from 'googleapis';
+import path from 'path';
+
+// 서비스 계정 키 파일 경로
+const SERVICE_ACCOUNT_FILE = path.join(process.cwd(), 'credentials.json');
+const SCOPES = ['https://www.googleapis.com/auth/drive.readonly'];
+
+interface TextFile {
+  id: string;
+  name: string;
+  modifiedTime?: string;
+  size?: string;
+}
+
+// Google Drive 클라이언트 초기화
+async function getDriveService() {
+  const auth = new google.auth.GoogleAuth({
+    keyFile: SERVICE_ACCOUNT_FILE,
+    scopes: SCOPES,
+  });
+
+  return google.drive({ version: 'v3', auth });
+}
+
+// 폴더 내 txt 파일들 가져오기 (_card.txt 제외)
+async function getTextFiles(drive: any, folderId: string): Promise<TextFile[]> {
+  try {
+    const response = await drive.files.list({
+      q: `'${folderId}' in parents and mimeType='text/plain' and trashed=false`,
+      fields: 'files(id,name,modifiedTime,size)',
+      orderBy: 'modifiedTime desc',
+    });
+
+    const files = response.data.files || [];
+    
+    // _card.txt가 아닌 일반 txt 파일만 필터링
+    return files.filter((file: any) => 
+      file.name && 
+      file.name.endsWith('.txt') && 
+      !file.name.endsWith('_card.txt')
+    );
+  } catch (error) {
+    console.error('Error getting text files:', error);
+    return [];
+  }
+}
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { folderId: string } }
+) {
+  try {
+    const folderId = params.folderId;
+    
+    if (!folderId) {
+      return NextResponse.json({ 
+        error: '폴더 ID가 필요합니다.' 
+      }, { status: 400 });
+    }
+
+    const drive = await getDriveService();
+    
+    // 폴더 정보 가져오기
+    const folderResponse = await drive.files.get({
+      fileId: folderId,
+      fields: 'id,name,modifiedTime',
+    });
+    
+    // 폴더 내 txt 파일들 가져오기
+    const files = await getTextFiles(drive, folderId);
+
+    return NextResponse.json({ 
+      folder: {
+        id: folderResponse.data.id,
+        name: folderResponse.data.name,
+        modifiedTime: folderResponse.data.modifiedTime,
+      },
+      files: files,
+      totalFiles: files.length,
+    });
+
+  } catch (error) {
+    console.error('Error in folder files API:', error);
+    
+    if (error.code === 404) {
+      return NextResponse.json({ 
+        error: '폴더를 찾을 수 없습니다.' 
+      }, { status: 404 });
+    }
+
+    return NextResponse.json({ 
+      error: '폴더의 파일을 가져오는 중 오류가 발생했습니다.',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 });
+  }
+}

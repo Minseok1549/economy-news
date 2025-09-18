@@ -1,0 +1,341 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 텍스트 라인 제한을 위한 커스텀 유틸리티 */
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* 투자 리포트 전용 스타일 */
+.investment-report-content {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  line-height: 1.7;
+}
+
+/* 섹션 헤더 스타일 개선 */
+.investment-report-content .section-header {
+  @apply text-xl font-bold text-gray-900 mb-6 mt-8 first:mt-0;
+  border-left: 4px solid #3B82F6;
+  padding-left: 16px;
+  background: linear-gradient(90deg, #EBF4FF 0%, transparent 100%);
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+/* 카테고리 헤더 (투자 기회:, 리스크 요인: 등) */
+.investment-report-content .category-header {
+  @apply text-lg font-semibold text-blue-800 mb-4 mt-6;
+  padding-left: 8px;
+  border-left: 3px solid #60A5FA;
+}
+
+.investment-report-content h3 {
+  @apply text-lg font-bold text-gray-900 mb-4 mt-6 first:mt-0;
+  border-left: 4px solid #3B82F6;
+  padding-left: 12px;
+}
+
+.investment-report-content p {
+  @apply text-gray-700 mb-4 leading-relaxed;
+}
+
+/* 테이블 스타일 개선 */
+.investment-report-content .investment-table {
+  @apply w-full border-collapse rounded-lg overflow-hidden my-6;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  border: 1px solid #E5E7EB;
+}
+
+.investment-report-content .investment-table thead th {
+  @apply font-bold text-blue-900 bg-blue-50 px-4 py-3 text-sm border-b border-blue-200;
+  text-align: left;
+}
+
+.investment-report-content .investment-table tbody tr:nth-child(even) {
+  @apply bg-gray-50;
+}
+
+.investment-report-content .investment-table tbody tr:hover {
+  @apply bg-blue-50;
+}
+
+.investment-report-content .investment-table td {
+  @apply border-b border-gray-200 px-4 py-3 text-sm;
+  vertical-align: top;
+}
+
+.investment-report-content .investment-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* 리스트 스타일 */
+.investment-report-content .investment-list {
+  @apply space-y-3 mb-6 pl-0;
+}
+
+.investment-report-content .investment-list li {
+  @apply text-gray-700 leading-relaxed;
+  position: relative;
+  padding-left: 24px;
+}
+
+.investment-report-content .investment-list li:before {
+  content: "•";
+  color: #3B82F6;
+  font-weight: bold;
+  font-size: 16px;
+  position: absolute;
+  left: 8px;
+}
+
+/* 번호 리스트 스타일 */
+.investment-report-content .numbered-list {
+  @apply space-y-3 mb-6 pl-0;
+  counter-reset: list-counter;
+}
+
+.investment-report-content .numbered-list li {
+  @apply text-gray-700 leading-relaxed;
+  position: relative;
+  padding-left: 32px;
+  counter-increment: list-counter;
+}
+
+.investment-report-content .numbered-list li:before {
+  content: counter(list-counter);
+  @apply bg-blue-600 text-white text-xs font-bold;
+  position: absolute;
+  left: 0;
+  top: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 구분선 스타일 */
+.investment-report-content .section-divider {
+  @apply border-t-2 border-gray-300 my-8;
+  background: linear-gradient(90deg, #3B82F6 0%, #E5E7EB 50%, #3B82F6 100%);
+  height: 2px;
+  border: none;
+}
+
+/* 강조 텍스트 개선 - **텍스트** 처리 */
+.investment-report-content strong {
+  @apply font-bold text-gray-900;
+  background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%);
+  padding: 2px 4px;
+  border-radius: 3px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+/* 인용구나 중요한 내용 */
+.investment-report-content blockquote {
+  @apply border-l-4 border-blue-400 pl-4 italic text-gray-600 my-4 bg-blue-50 py-2 rounded-r-lg;
+}
+
+/* 숫자나 퍼센트 강조 */
+.investment-report-content .highlight-number {
+  @apply font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded;
+}
+
+/* 투자 지표 스타일 */
+.investment-metrics {
+  @apply grid grid-cols-1 md:grid-cols-3 gap-4 my-6;
+}
+
+.investment-metric-card {
+  @apply bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-lg border border-blue-200;
+}
+
+.investment-metric-card .metric-label {
+  @apply text-sm font-medium text-blue-700 mb-1;
+}
+
+.investment-metric-card .metric-value {
+  @apply text-2xl font-bold text-blue-900;
+}
+
+/* 반응형 개선 */
+@media (max-width: 768px) {
+  .investment-report-content .investment-table {
+    font-size: 12px;
+  }
+  
+  .investment-report-content .investment-table th,
+  .investment-report-content .investment-table td {
+    padding: 8px;
+  }
+  
+  .investment-report-content .section-header {
+    font-size: 18px;
+    padding-left: 12px;
+  }
+  
+  .investment-report-content .category-header {
+    font-size: 16px;
+  }
+  
+  .investment-report-content .numbered-list li {
+    padding-left: 28px;
+  }
+  
+  .investment-report-content .numbered-list li:before {
+    width: 18px;
+    height: 18px;
+    font-size: 10px;
+  }
+
+  /* 컨테이너 패딩 축소 */
+  .container {
+    @apply px-2;
+  }
+  
+  /* 헤더 스타일 모바일 조정 */
+  .investment-report-content .section-header {
+    @apply text-lg font-bold text-gray-900 mb-4 mt-6;
+    padding-left: 12px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+    border-left: 3px solid #3B82F6;
+  }
+  
+  .investment-report-content .category-header {
+    @apply text-base font-semibold text-blue-800 mb-3 mt-4;
+    padding-left: 6px;
+  }
+
+  /* 테이블 모바일 최적화 */
+  .investment-report-content .investment-table {
+    font-size: 11px;
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  
+  .investment-report-content .investment-table thead,
+  .investment-report-content .investment-table tbody,
+  .investment-report-content .investment-table th,
+  .investment-report-content .investment-table td,
+  .investment-report-content .investment-table tr {
+    display: block;
+  }
+  
+  .investment-report-content .investment-table thead tr {
+    position: absolute;
+    top: -9999px;
+    left: -9999px;
+  }
+  
+  .investment-report-content .investment-table tr {
+    @apply border border-gray-200 mb-2 rounded-lg p-2;
+    background: white;
+  }
+  
+  .investment-report-content .investment-table td {
+    @apply border-none relative pl-12;
+    padding-top: 8px;
+    padding-bottom: 4px;
+  }
+  
+  .investment-report-content .investment-table td:before {
+    content: attr(data-label);
+    position: absolute;
+    left: 6px;
+    width: 45px;
+    @apply text-xs font-semibold text-blue-800;
+    white-space: nowrap;
+  }
+
+  /* 리스트 모바일 조정 */
+  .investment-report-content .investment-list li,
+  .investment-report-content .numbered-list li {
+    @apply text-sm leading-relaxed mb-2;
+  }
+  
+  .investment-report-content .numbered-list li {
+    padding-left: 24px;
+  }
+  
+  .investment-report-content .numbered-list li:before {
+    width: 16px;
+    height: 16px;
+    font-size: 9px;
+  }
+
+  /* 텍스트 크기 조정 */
+  .investment-report-content p {
+    @apply text-sm mb-3 leading-relaxed;
+  }
+  
+  .investment-report-content strong {
+    @apply text-sm font-bold;
+    padding: 1px 3px;
+  }
+
+  /* 카드 패딩 축소 */
+  .investment-report-content {
+    padding: 16px;
+  }
+  
+  /* 구분선 모바일 조정 */
+  .investment-report-content .section-divider {
+    @apply my-4;
+  }
+}
+
+/* 초소형 모바일 (320px 이하) */
+@media (max-width: 320px) {
+  .investment-report-content .section-header {
+    @apply text-base;
+    padding-left: 8px;
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
+  
+  .investment-report-content .category-header {
+    @apply text-sm;
+  }
+  
+  .investment-report-content p {
+    @apply text-xs;
+  }
+  
+  .investment-report-content .investment-table {
+    font-size: 10px;
+  }
+}
