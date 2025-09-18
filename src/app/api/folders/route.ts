@@ -14,6 +14,28 @@ interface DateFolder {
 
 // Google Drive 클라이언트 초기화
 async function getDriveService() {
+  // 환경 변수 디버깅
+  const envVars = {
+    hasProjectId: !!process.env.GOOGLE_PROJECT_ID,
+    hasPrivateKeyId: !!process.env.GOOGLE_PRIVATE_KEY_ID,
+    hasPrivateKey: !!process.env.GOOGLE_PRIVATE_KEY,
+    hasClientEmail: !!process.env.GOOGLE_CLIENT_EMAIL,
+    hasClientId: !!process.env.GOOGLE_CLIENT_ID,
+    projectId: process.env.GOOGLE_PROJECT_ID,
+    clientEmail: process.env.GOOGLE_CLIENT_EMAIL,
+    privateKeyLength: process.env.GOOGLE_PRIVATE_KEY?.length || 0,
+  };
+  
+  console.log('Environment variables check:', envVars);
+
+  // 필수 환경 변수 검증
+  const requiredVars = ['GOOGLE_PROJECT_ID', 'GOOGLE_PRIVATE_KEY', 'GOOGLE_CLIENT_EMAIL'];
+  const missing = requiredVars.filter(varName => !process.env[varName]);
+  
+  if (missing.length > 0) {
+    throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
+  }
+
   const credentials = {
     type: 'service_account',
     project_id: process.env.GOOGLE_PROJECT_ID,
@@ -26,6 +48,8 @@ async function getDriveService() {
     auth_provider_x509_cert_url: 'https://www.googleapis.com/oauth2/v1/certs',
     client_x509_cert_url: `https://www.googleapis.com/robot/v1/metadata/x509/${encodeURIComponent(process.env.GOOGLE_CLIENT_EMAIL || '')}`,
   };
+
+  console.log('Credentials object created with client_email:', credentials.client_email);
 
   const auth = new google.auth.GoogleAuth({
     credentials,
