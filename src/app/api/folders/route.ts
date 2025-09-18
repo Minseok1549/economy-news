@@ -19,28 +19,47 @@ async function getDriveService() {
     hasProjectId: !!process.env.GOOGLE_PROJECT_ID,
     hasPrivateKeyId: !!process.env.GOOGLE_PRIVATE_KEY_ID,
     hasPrivateKey: !!process.env.GOOGLE_PRIVATE_KEY,
+    hasPrivateKeyBase64: !!process.env.GOOGLE_PRIVATE_KEY_BASE64,
     hasClientEmail: !!process.env.GOOGLE_CLIENT_EMAIL,
     hasClientId: !!process.env.GOOGLE_CLIENT_ID,
     projectId: process.env.GOOGLE_PROJECT_ID,
     clientEmail: process.env.GOOGLE_CLIENT_EMAIL,
     privateKeyLength: process.env.GOOGLE_PRIVATE_KEY?.length || 0,
+    privateKeyBase64Length: process.env.GOOGLE_PRIVATE_KEY_BASE64?.length || 0,
   };
   
   console.log('Environment variables check:', envVars);
 
   // 필수 환경 변수 검증
-  const requiredVars = ['GOOGLE_PROJECT_ID', 'GOOGLE_PRIVATE_KEY', 'GOOGLE_CLIENT_EMAIL'];
+  const requiredVars = ['GOOGLE_PROJECT_ID', 'GOOGLE_CLIENT_EMAIL'];
   const missing = requiredVars.filter(varName => !process.env[varName]);
   
   if (missing.length > 0) {
     throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
   }
 
+  // Private key 처리 - Base64 버전이 있으면 우선 사용
+  let privateKey: string;
+  if (process.env.GOOGLE_PRIVATE_KEY_BASE64) {
+    try {
+      privateKey = Buffer.from(process.env.GOOGLE_PRIVATE_KEY_BASE64, 'base64').toString('utf8');
+      console.log('Using Base64 encoded private key');
+    } catch (error) {
+      console.error('Error decoding Base64 private key:', error);
+      throw new Error('Invalid Base64 private key');
+    }
+  } else if (process.env.GOOGLE_PRIVATE_KEY) {
+    privateKey = process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n');
+    console.log('Using regular private key');
+  } else {
+    throw new Error('No private key found (neither GOOGLE_PRIVATE_KEY nor GOOGLE_PRIVATE_KEY_BASE64)');
+  }
+
   const credentials = {
     type: 'service_account',
     project_id: process.env.GOOGLE_PROJECT_ID,
     private_key_id: process.env.GOOGLE_PRIVATE_KEY_ID,
-    private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+    private_key: privateKey,
     client_email: process.env.GOOGLE_CLIENT_EMAIL,
     client_id: process.env.GOOGLE_CLIENT_ID,
     auth_uri: 'https://accounts.google.com/o/oauth2/auth',
@@ -50,6 +69,7 @@ async function getDriveService() {
   };
 
   console.log('Credentials object created with client_email:', credentials.client_email);
+  console.log('Private key starts with:', privateKey.substring(0, 50) + '...');
 
   const auth = new google.auth.GoogleAuth({
     credentials,
