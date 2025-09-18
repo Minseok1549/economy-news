@@ -49,7 +49,9 @@ async function getDriveService() {
       console.log('Using multiline GOOGLE_PRIVATE_KEY (Vercel style)');
       console.log('Private key length:', rawKey.length);
       console.log('First 100 chars:', rawKey.substring(0, 100));
-      console.log('Last 100 chars:', rawKey.substring(rawKey.length - 100));
+      console.log('Last 50 chars with codes:', JSON.stringify(rawKey.substring(rawKey.length - 50)));
+      console.log('Ends with newline?', rawKey.endsWith('\n'));
+      console.log('Last char code:', rawKey.charCodeAt(rawKey.length - 1));
     } else {
       // 이스케이프 문자가 있는 경우 (.env 파일 방식)
       privateKey = rawKey.replace(/\\n/g, '\n');
