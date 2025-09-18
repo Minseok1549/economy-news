@@ -38,11 +38,20 @@ async function getDriveService() {
     throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
   }
 
-  // Private key 처리 - 기존 GOOGLE_PRIVATE_KEY를 우선 사용
+  // Private key 처리 - 두 가지 형식 모두 지원
   let privateKey: string;
   if (process.env.GOOGLE_PRIVATE_KEY) {
-    privateKey = process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n');
-    console.log('Using regular GOOGLE_PRIVATE_KEY');
+    const rawKey = process.env.GOOGLE_PRIVATE_KEY;
+    
+    // 실제 줄바꿈이 있는지 확인 (Vercel 방식)
+    if (rawKey.includes('\n')) {
+      privateKey = rawKey; // 이미 실제 줄바꿈이 있음
+      console.log('Using multiline GOOGLE_PRIVATE_KEY (Vercel style)');
+    } else {
+      // 이스케이프 문자가 있는 경우 (.env 파일 방식)
+      privateKey = rawKey.replace(/\\n/g, '\n');
+      console.log('Using escaped GOOGLE_PRIVATE_KEY (local .env style)');
+    }
   } else if (process.env.GOOGLE_PRIVATE_KEY_BASE64) {
     try {
       privateKey = Buffer.from(process.env.GOOGLE_PRIVATE_KEY_BASE64, 'base64').toString('utf8');
@@ -149,6 +158,15 @@ export async function GET(
   _request: NextRequest
 ) {
   try {
+    console.log('=== DEBUG: Environment Check ===');
+    console.log('NODE_ENV:', process.env.NODE_ENV);
+    console.log('VERCEL:', process.env.VERCEL);
+    console.log('Environment variables present:');
+    console.log('- GOOGLE_PROJECT_ID:', !!process.env.GOOGLE_PROJECT_ID);
+    console.log('- GOOGLE_PRIVATE_KEY:', !!process.env.GOOGLE_PRIVATE_KEY);
+    console.log('- GOOGLE_CLIENT_EMAIL:', !!process.env.GOOGLE_CLIENT_EMAIL);
+    console.log('- NEWS_SUMMARIES_FOLDER_ID:', !!process.env.NEWS_SUMMARIES_FOLDER_ID);
+    
     // 환경 변수 확인
     if (!NEWS_SUMMARIES_FOLDER_ID) {
       return NextResponse.json({ 
@@ -157,6 +175,8 @@ export async function GET(
           hasProjectId: !!process.env.GOOGLE_PROJECT_ID,
           hasClientEmail: !!process.env.GOOGLE_CLIENT_EMAIL,
           hasPrivateKey: !!process.env.GOOGLE_PRIVATE_KEY,
+          nodeEnv: process.env.NODE_ENV,
+          isVercel: !!process.env.VERCEL,
         }
       }, { status: 500 });
     }
