@@ -49,6 +49,7 @@ function getTodayFolderNames(): string[] {
 }
 
 // 오늘 날짜 폴더 찾기
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function findTodayFolder(drive: any): Promise<string | null> {
   const candidates = new Set(getTodayFolderNames());
   
@@ -73,6 +74,7 @@ async function findTodayFolder(drive: any): Promise<string | null> {
 }
 
 // 폴더 내 *_card.txt 파일들 가져오기
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function getCardTextFiles(drive: any, folderId: string): Promise<DriveFile[]> {
   try {
     const response = await drive.files.list({
@@ -82,6 +84,7 @@ async function getCardTextFiles(drive: any, folderId: string): Promise<DriveFile
     });
 
     const files = response.data.files || [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return files.filter((file: any) => file.name && file.name.endsWith('_card.txt'));
   } catch (error) {
     console.error('Error getting card text files:', error);
@@ -90,6 +93,7 @@ async function getCardTextFiles(drive: any, folderId: string): Promise<DriveFile
 }
 
 // 파일 내용 읽기
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function getFileContent(drive: any, fileId: string): Promise<string> {
   try {
     const response = await drive.files.get({
@@ -104,7 +108,10 @@ async function getFileContent(drive: any, fileId: string): Promise<string> {
   }
 }
 
-export async function GET(request: NextRequest) {
+export async function GET(
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _request: NextRequest
+) {
   try {
     const drive = await getDriveService();
     

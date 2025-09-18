@@ -361,8 +361,8 @@ export default function Home() {
           <h3 className="text-lg font-semibold mb-3">사용법</h3>
           <ul className="text-sm text-gray-600 space-y-1">
             <li>• <strong>날짜 선택:</strong> 왼쪽 목록에서 날짜를 클릭하면 해당 날짜의 뉴스 파일들을 볼 수 있습니다</li>
-            <li>• <strong>뉴스 읽기:</strong> "📖 읽기" 버튼을 클릭하면 뉴스 전체 내용을 볼 수 있습니다</li>
-            <li>• <strong>링크 공유:</strong> "🔗" 버튼을 클릭하면 해당 뉴스의 고유 링크가 복사됩니다</li>
+            <li>• <strong>뉴스 읽기:</strong> &ldquo;📖 읽기&rdquo; 버튼을 클릭하면 뉴스 전체 내용을 볼 수 있습니다</li>
+            <li>• <strong>링크 공유:</strong> &ldquo;🔗&rdquo; 버튼을 클릭하면 해당 뉴스의 고유 링크가 복사됩니다</li>
             <li>• <strong>외부 공유:</strong> 복사된 링크를 다른 사람에게 보내면 같은 뉴스를 볼 수 있습니다</li>
             <li>• *_card.txt 파일은 표시되지 않으며, 일반 .txt 파일만 표시됩니다</li>
           </ul>

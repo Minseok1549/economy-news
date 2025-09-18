@@ -17,6 +17,7 @@ async function getDriveService() {
 }
 
 // 파일 내용과 메타데이터 가져오기
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function getFileDetails(drive: any, fileId: string) {
   try {
     // 파일 메타데이터 가져오기
@@ -43,10 +44,11 @@ async function getFileDetails(drive: any, fileId: string) {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const fileId = params.id;
+    const resolvedParams = await params;
+    const fileId = resolvedParams.id;
     
     if (!fileId) {
       return NextResponse.json({ 
@@ -68,7 +70,8 @@ export async function GET(
   } catch (error) {
     console.error('Error in news detail API:', error);
     
-    if (error.code === 404) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if ((error as any).code === 404) {
       return NextResponse.json({ 
         error: '파일을 찾을 수 없습니다.' 
       }, { status: 404 });

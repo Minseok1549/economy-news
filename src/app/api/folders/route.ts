@@ -90,7 +90,10 @@ function parseDateFromFolderName(folderName: string): Date | null {
   return null;
 }
 
-export async function GET(request: NextRequest) {
+export async function GET(
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _request: NextRequest
+) {
   try {
     const drive = await getDriveService();
     
@@ -109,7 +112,7 @@ export async function GET(request: NextRequest) {
       .map(folder => ({
         id: folder.id!,
         name: folder.name!,
-        modifiedTime: folder.modifiedTime,
+        modifiedTime: folder.modifiedTime || undefined,
       }));
 
     // 날짜 순으로 정렬

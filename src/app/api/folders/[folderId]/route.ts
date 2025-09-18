@@ -24,6 +24,7 @@ async function getDriveService() {
 }
 
 // 폴더 내 txt 파일들 가져오기 (_card.txt 제외)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function getTextFiles(drive: any, folderId: string): Promise<TextFile[]> {
   try {
     const response = await drive.files.list({
@@ -35,6 +36,7 @@ async function getTextFiles(drive: any, folderId: string): Promise<TextFile[]> {
     const files = response.data.files || [];
     
     // _card.txt가 아닌 일반 txt 파일만 필터링
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return files.filter((file: any) => 
       file.name && 
       file.name.endsWith('.txt') && 
@@ -47,11 +49,12 @@ async function getTextFiles(drive: any, folderId: string): Promise<TextFile[]> {
 }
 
 export async function GET(
-  request: NextRequest,
-  { params }: { params: { folderId: string } }
+  _request: NextRequest,
+  { params }: { params: Promise<{ folderId: string }> }
 ) {
   try {
-    const folderId = params.folderId;
+    const resolvedParams = await params;
+    const folderId = resolvedParams.folderId;
     
     if (!folderId) {
       return NextResponse.json({ 
@@ -83,7 +86,8 @@ export async function GET(
   } catch (error) {
     console.error('Error in folder files API:', error);
     
-    if (error.code === 404) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if ((error as any).code === 404) {
       return NextResponse.json({ 
         error: '폴더를 찾을 수 없습니다.' 
       }, { status: 404 });

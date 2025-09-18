@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 
 interface NewsDetail {
@@ -14,7 +14,6 @@ interface NewsDetail {
 
 export default function NewsDetailPage() {
   const params = useParams();
-  const router = useRouter();
   const [newsDetail, setNewsDetail] = useState<NewsDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,32 +44,9 @@ export default function NewsDetailPage() {
     }
   };
 
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return '';
-    
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleString('ko-KR', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-    } catch {
-      return dateString;
-    }
-  };
 
-  const copyLink = async () => {
-    try {
-      await navigator.clipboard.writeText(window.location.href);
-      alert('링크가 클립보드에 복사되었습니다!');
-    } catch (err) {
-      console.error('Failed to copy link:', err);
-      alert('링크 복사에 실패했습니다.');
-    }
-  };
+
+
 
   // 투자 리포트 내용을 파싱하고 구조화하는 함수
   const parseInvestmentReport = (content: string) => {
@@ -211,7 +187,6 @@ export default function NewsDetailPage() {
           // 섹션 헤더로 처리되었으므로 스킵
         } else {
           // 라인 내의 **텍스트** 부분을 굵게 변환 (더 강력한 정규식 사용)
-          const originalLine = processedLine;
           processedLine = processedLine.replace(/\*\*([^\*\n]+?)\*\*/g, '<strong>$1</strong>');
           
 
@@ -295,22 +270,14 @@ export default function NewsDetailPage() {
     return name;
   };
 
-  const getReportCategory = (title: string) => {
-    if (title.includes('Technology')) return { category: 'Technology', color: 'bg-blue-100 text-blue-800', icon: '💻' };
-    if (title.includes('Economy')) return { category: 'Economy', color: 'bg-green-100 text-green-800', icon: '📈' };
-    if (title.includes('Health')) return { category: 'Health', color: 'bg-red-100 text-red-800', icon: '🏥' };
-    if (title.includes('Environment')) return { category: 'Environment', color: 'bg-emerald-100 text-emerald-800', icon: '🌿' };
-    if (title.includes('Sports')) return { category: 'Sports', color: 'bg-orange-100 text-orange-800', icon: '⚽' };
-    if (title.includes('Science')) return { category: 'Science', color: 'bg-purple-100 text-purple-800', icon: '🔬' };
-    if (title.includes('Politics')) return { category: 'Politics', color: 'bg-gray-100 text-gray-800', icon: '🏛️' };
-    if (title.includes('Culture')) return { category: 'Culture & Arts', color: 'bg-pink-100 text-pink-800', icon: '🎨' };
-    if (title.includes('Business')) return { category: 'Business & Finance', color: 'bg-yellow-100 text-yellow-800', icon: '💼' };
-    if (title.includes('World')) return { category: 'World Affairs', color: 'bg-indigo-100 text-indigo-800', icon: '🌍' };
-    return { category: 'General', color: 'bg-gray-100 text-gray-800', icon: '📄' };
-  };
+  useEffect(() => {
+    fetchNewsDetail();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fileId]);
 
   useEffect(() => {
     fetchNewsDetail();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fileId]);
 
   if (loading) {
@@ -362,7 +329,6 @@ export default function NewsDetailPage() {
   }
 
   const sections = parseInvestmentReport(newsDetail.content);
-  const reportInfo = getReportCategory(newsDetail.name);
 
   return (
     <main className="container mx-auto px-4 py-8 bg-gray-50 min-h-screen">
