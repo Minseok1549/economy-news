@@ -44,13 +44,18 @@ async function getDriveService() {
     const rawKey = process.env.GOOGLE_PRIVATE_KEY;
     
     // 실제 줄바꿈이 있는지 확인 (Vercel 방식)
-    if (rawKey) {
+    if (rawKey.includes('\n')) {
       privateKey = rawKey; // 이미 실제 줄바꿈이 있음
       console.log('Using multiline GOOGLE_PRIVATE_KEY (Vercel style)');
+      console.log('Private key length:', rawKey.length);
+      console.log('First 100 chars:', rawKey.substring(0, 100));
+      console.log('Last 100 chars:', rawKey.substring(rawKey.length - 100));
     } else {
       // 이스케이프 문자가 있는 경우 (.env 파일 방식)
       privateKey = rawKey.replace(/\\n/g, '\n');
       console.log('Using escaped GOOGLE_PRIVATE_KEY (local .env style)');
+      console.log('Original key length:', rawKey.length);
+      console.log('Processed key length:', privateKey.length);
     }
   } else if (process.env.GOOGLE_PRIVATE_KEY_BASE64) {
     try {
