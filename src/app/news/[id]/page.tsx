@@ -44,10 +44,6 @@ export default function NewsDetailPage() {
     }
   };
 
-
-
-
-
   // 투자 리포트 내용을 파싱하고 구조화하는 함수
   const parseInvestmentReport = (content: string) => {
     const sections = [];
