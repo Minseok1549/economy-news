@@ -44,7 +44,7 @@ async function getDriveService() {
     const rawKey = process.env.GOOGLE_PRIVATE_KEY;
     
     // 실제 줄바꿈이 있는지 확인 (Vercel 방식)
-    if (rawKey.includes('\n')) {
+    if (rawKey) {
       privateKey = rawKey; // 이미 실제 줄바꿈이 있음
       console.log('Using multiline GOOGLE_PRIVATE_KEY (Vercel style)');
     } else {
