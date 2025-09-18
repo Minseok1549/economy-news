@@ -83,7 +83,7 @@ async function getDriveService() {
   };
 
   console.log('Credentials object created with client_email:', credentials.client_email);
-  console.log('Private key starts with:', privateKey.substring(0, 50) + '...');
+  console.log('Private key starts with:', privateKey);
 
   const auth = new google.auth.GoogleAuth({
     credentials,
