@@ -31,44 +31,37 @@ async function getDriveService() {
   console.log('Environment variables check:', envVars);
 
   // 필수 환경 변수 검증
-  const requiredVars = ['GOOGLE_PROJECT_ID', 'GOOGLE_CLIENT_EMAIL', 'GOOGLE_PRIVATE_KEY'];
+  const requiredVars = ['GOOGLE_PROJECT_ID', 'GOOGLE_CLIENT_EMAIL'];
   const missing = requiredVars.filter(varName => !process.env[varName]);
   
   if (missing.length > 0) {
     throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
   }
 
-  // Private key 처리 - 두 가지 형식 모두 지원
+  // Private key 처리 - Base64 우선, 일반 텍스트는 백업
   let privateKey: string;
-  if (process.env.GOOGLE_PRIVATE_KEY) {
+  if (process.env.GOOGLE_PRIVATE_KEY_BASE64) {
+    try {
+      privateKey = Buffer.from(process.env.GOOGLE_PRIVATE_KEY_BASE64, 'base64').toString('utf8');
+      console.log('Using Base64 encoded private key');
+    } catch (error) {
+      console.error('Error decoding Base64 private key:', error);
+      throw new Error('Invalid Base64 private key');
+    }
+  } else if (process.env.GOOGLE_PRIVATE_KEY) {
     const rawKey = process.env.GOOGLE_PRIVATE_KEY;
     
     // 실제 줄바꿈이 있는지 확인 (Vercel 방식)
     if (rawKey.includes('\n')) {
       privateKey = rawKey; // 이미 실제 줄바꿈이 있음
       console.log('Using multiline GOOGLE_PRIVATE_KEY (Vercel style)');
-      console.log('Private key length:', rawKey.length);
-      console.log('First 100 chars:', rawKey.substring(0, 100));
-      console.log('Last 50 chars with codes:', JSON.stringify(rawKey.substring(rawKey.length - 50)));
-      console.log('Ends with newline?', rawKey.endsWith('\n'));
-      console.log('Last char code:', rawKey.charCodeAt(rawKey.length - 1));
     } else {
       // 이스케이프 문자가 있는 경우 (.env 파일 방식)
       privateKey = rawKey.replace(/\\n/g, '\n');
       console.log('Using escaped GOOGLE_PRIVATE_KEY (local .env style)');
-      console.log('Original key length:', rawKey.length);
-      console.log('Processed key length:', privateKey.length);
-    }
-  } else if (process.env.GOOGLE_PRIVATE_KEY_BASE64) {
-    try {
-      privateKey = Buffer.from(process.env.GOOGLE_PRIVATE_KEY_BASE64, 'base64').toString('utf8');
-      console.log('Using Base64 encoded private key (fallback)');
-    } catch (error) {
-      console.error('Error decoding Base64 private key:', error);
-      throw new Error('Invalid Base64 private key');
     }
   } else {
-    throw new Error('No private key found (neither GOOGLE_PRIVATE_KEY nor GOOGLE_PRIVATE_KEY_BASE64)');
+    throw new Error('No private key found (neither GOOGLE_PRIVATE_KEY_BASE64 nor GOOGLE_PRIVATE_KEY)');
   }
 
   const credentials = {
