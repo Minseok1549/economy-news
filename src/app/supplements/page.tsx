@@ -135,7 +135,7 @@ export default function SupplementsPage() {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* 쿠팡 꿀템 제품 섹션 */}
         <div className="mb-8">
-          <h2 className="text-lg font-semibold text-gray-800 mb-4 text-center">쿠팡 꿀템 제품</h2>
+          <h2 className="text-lg font-semibold text-gray-800 mb-4 text-center">💊 영양제 제품 정보 💊</h2>
           <div className="space-y-3">
             {products.map((product) => (
               <div
