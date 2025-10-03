@@ -111,7 +111,7 @@ export default function SupplementsPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-pink-100 to-pink-200">
       {/* Header */}
-      <div className="bg-pink-50 shadow-sm border-b border-pink-200">
+      <div className="bg-pink-50 shadow-sm border-b border-pink-200 pt-4">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="text-center">
             <div className="inline-flex items-center justify-center w-16 h-16 mb-4">
