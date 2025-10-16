@@ -14,15 +14,15 @@ export async function GET() {
     const categories = getPublishCategoriesForTime(now);
     
     // /api/schedule에서 준비된 뉴스 가져오기
-    const scheduleModule = await import('../schedule/route');
-    const newsToPublish = scheduleModule.getNewsForCurrentTime();
+    await import('../schedule/route'); // 모듈 로드하여 global 함수 등록
+    const newsToPublish = (global as any).__getPreparedNews();
     
     return NextResponse.json({
       currentTime: now.toISOString(),
       currentHour: now.getHours(),
       categories: categories,
       totalNews: newsToPublish.length,
-      news: newsToPublish.map(news => ({
+      news: newsToPublish.map((news: any) => ({
         id: news.id,
         title: news.title,
         category: news.category,
@@ -47,8 +47,8 @@ export async function POST() {
     const hour = now.getHours();
     
     // /api/schedule에서 준비된 뉴스 가져오기
-    const scheduleModule = await import('../schedule/route');
-    const newsToPublish = scheduleModule.getNewsForCurrentTime();
+    await import('../schedule/route'); // 모듈 로드하여 global 함수 등록
+    const newsToPublish = (global as any).__getPreparedNews();
     
     if (newsToPublish.length === 0) {
       return NextResponse.json({

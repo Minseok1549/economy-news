@@ -264,27 +264,25 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * 현재 시간에 맞는 카테고리의 뉴스 가져오기
- * Internal helper function - not an HTTP route
+ * 준비된 뉴스를 가져오는 헬퍼 - publish route에서 사용
+ * Dynamic import를 통해 접근 가능하도록 global 변수로 노출
  */
-function getNewsForCurrentTime(): NewsItem[] {
-  const now = new Date();
-  const categories = getPublishCategoriesForTime(now);
-  
-  const newsToPublish: NewsItem[] = [];
-  
-  for (const category of categories) {
-    // 해당 카테고리의 뉴스 찾기
-    for (const [, news] of preparedNews) {
-      if (news.category === category) {
-        newsToPublish.push(news);
-        break; // 카테고리당 1개만
+if (typeof global !== 'undefined') {
+  (global as any).__getPreparedNews = () => {
+    const now = new Date();
+    const categories = getPublishCategoriesForTime(now);
+    
+    const newsToPublish: NewsItem[] = [];
+    
+    for (const category of categories) {
+      for (const [, news] of preparedNews) {
+        if (news.category === category) {
+          newsToPublish.push(news);
+          break;
+        }
       }
     }
-  }
-  
-  return newsToPublish;
+    
+    return newsToPublish;
+  };
 }
-
-// Export for use in publish route
-export { getNewsForCurrentTime };
