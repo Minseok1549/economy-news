@@ -1,43 +1,145 @@
 import { NextResponse } from 'next/server';
-import { getPublishCategoriesForTime, getCategoryLabel, type NewsItem } from '@/lib/scheduler';
+import { google } from 'googleapis';
+import { rewriteNewsContent } from '@/lib/ai';
+import { 
+  getPublishCategoriesForTime, 
+  getCategoryLabel, 
+  extractCategoryFromFileName,
+  type NewsItem 
+} from '@/lib/scheduler';
 import { publishToWordPress } from '@/lib/tistory';
-import { getPreparedNews } from '@/lib/newsStore';
+
+const SCOPES = ['https://www.googleapis.com/auth/drive.readonly'];
+const NEWS_SUMMARIES_FOLDER_ID = process.env.NEWS_SUMMARIES_FOLDER_ID;
+
+interface DriveFile {
+  id: string;
+  name: string;
+  modifiedTime?: string;
+}
 
 // 발행된 뉴스를 추적하기 위한 메모리 저장소
 const publishedNews: Set<string> = new Set();
 
+// Google Drive 클라이언트 초기화
+async function getDriveService() {
+  let privateKey: string;
+  if (process.env.GOOGLE_PRIVATE_KEY_BASE64) {
+    privateKey = Buffer.from(process.env.GOOGLE_PRIVATE_KEY_BASE64, 'base64').toString('utf8');
+  } else if (process.env.GOOGLE_PRIVATE_KEY) {
+    privateKey = process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n');
+  } else {
+    throw new Error('No private key found');
+  }
+
+  const credentials = {
+    type: 'service_account',
+    project_id: process.env.GOOGLE_PROJECT_ID,
+    private_key_id: process.env.GOOGLE_PRIVATE_KEY_ID,
+    private_key: privateKey,
+    client_email: process.env.GOOGLE_CLIENT_EMAIL,
+    client_id: process.env.GOOGLE_CLIENT_ID,
+    auth_uri: 'https://accounts.google.com/o/oauth2/auth',
+    token_uri: 'https://oauth2.googleapis.com/token',
+    auth_provider_x509_cert_url: 'https://www.googleapis.com/oauth2/v1/certs',
+    client_x509_cert_url: `https://www.googleapis.com/robot/v1/metadata/x509/${encodeURIComponent(process.env.GOOGLE_CLIENT_EMAIL || '')}`,
+  };
+
+  const auth = new google.auth.GoogleAuth({
+    credentials,
+    scopes: SCOPES,
+  });
+
+  return google.drive({ version: 'v3', auth });
+}
+
+// 오늘 날짜 폴더 찾기
+function getTodayFolderNames(): string[] {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  
+  return [
+    `${year}-${month}-${day}`,
+    `${year}${month}${day}`,
+    `${year}.${month}.${day}`,
+    `${year}년 ${parseInt(month)}월 ${parseInt(day)}일`,
+    `${year}년 ${month}월 ${day}일`,
+  ];
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function findTodayFolder(drive: any): Promise<string | null> {
+  const candidates = new Set(getTodayFolderNames());
+  
+  try {
+    const response = await drive.files.list({
+      q: `'${NEWS_SUMMARIES_FOLDER_ID}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+      fields: 'files(id,name)',
+    });
+
+    const folders = response.data.files || [];
+    
+    for (const folder of folders) {
+      if (folder.name && candidates.has(folder.name)) {
+        return folder.id;
+      }
+    }
+  } catch (error) {
+    console.error('Error finding today folder:', error);
+  }
+  
+  return null;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function getCardTextFiles(drive: any, folderId: string): Promise<DriveFile[]> {
+  try {
+    const response = await drive.files.list({
+      q: `'${folderId}' in parents and mimeType='text/plain' and trashed=false`,
+      fields: 'files(id,name,modifiedTime)',
+      orderBy: 'modifiedTime desc',
+    });
+
+    const files = response.data.files || [];
+    // _card.txt가 붙지 않은 .txt 파일만 가져오기
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return files.filter((file: any) => file.name && file.name.endsWith('.txt') && !file.name.endsWith('_card.txt'));
+  } catch (error) {
+    console.error('Error getting card text files:', error);
+    return [];
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function getFileContent(drive: any, fileId: string): Promise<string> {
+  try {
+    const response = await drive.files.get({
+      fileId: fileId,
+      alt: 'media',
+    });
+    
+    return response.data || '';
+  } catch (error) {
+    console.error('Error getting file content:', error);
+    return '';
+  }
+}
+
 /**
- * GET /api/publish - 현재 시간에 발행할 뉴스 조회
+ * GET /api/publish - 현재 시간에 발행할 카테고리 조회
  */
 export async function GET() {
   try {
     const now = new Date();
     const categories = getPublishCategoriesForTime(now);
     
-    // /api/schedule에서 준비된 뉴스 가져오기
-    const preparedNews = getPreparedNews();
-    const newsToPublish: NewsItem[] = [];
-    
-    for (const category of categories) {
-      for (const [, news] of preparedNews) {
-        if (news.category === category) {
-          newsToPublish.push(news);
-          break;
-        }
-      }
-    }
-    
     return NextResponse.json({
       currentTime: now.toISOString(),
       currentHour: now.getHours(),
       categories: categories,
-      totalNews: newsToPublish.length,
-      news: newsToPublish.map((news) => ({
-        id: news.id,
-        title: news.title,
-        category: news.category,
-        categoryLabel: getCategoryLabel(news.category),
-      })),
+      categoryLabels: categories.map(cat => getCategoryLabel(cat)),
     });
   } catch (error) {
     console.error('발행 대상 조회 오류:', error);
@@ -49,28 +151,15 @@ export async function GET() {
 }
 
 /**
- * POST /api/publish - 현재 시간에 맞는 뉴스 발행
+ * POST /api/publish - Google Drive에서 뉴스 가져와 AI 재작성 후 WordPress에 발행
  */
 export async function POST() {
   try {
     const now = new Date();
     const hour = now.getHours();
-    
-    // /api/schedule에서 준비된 뉴스 가져오기
-    const preparedNews = getPreparedNews();
     const categories = getPublishCategoriesForTime(now);
-    const newsToPublish: NewsItem[] = [];
     
-    for (const category of categories) {
-      for (const [, news] of preparedNews) {
-        if (news.category === category) {
-          newsToPublish.push(news);
-          break;
-        }
-      }
-    }
-    
-    if (newsToPublish.length === 0) {
+    if (categories.length === 0) {
       return NextResponse.json({
         message: '현재 시간에 발행할 뉴스가 없습니다.',
         currentTime: now.toISOString(),
@@ -79,47 +168,120 @@ export async function POST() {
       });
     }
     
+    console.log(`📅 발행 시작 - 시간: ${hour}시, 카테고리:`, categories);
+    
+    // 1. Google Drive에서 오늘의 뉴스 가져오기
+    const drive = await getDriveService();
+    const todayFolderId = await findTodayFolder(drive);
+    
+    if (!todayFolderId) {
+      return NextResponse.json(
+        { 
+          error: '오늘 날짜 폴더를 찾을 수 없습니다.',
+          currentTime: now.toISOString(),
+          currentHour: hour,
+        },
+        { status: 404 }
+      );
+    }
+
+    const files = await getCardTextFiles(drive, todayFolderId);
+    
+    if (files.length === 0) {
+      return NextResponse.json(
+        { 
+          error: '오늘 날짜 폴더에 뉴스 파일이 없습니다.',
+          currentTime: now.toISOString(),
+          currentHour: hour,
+        },
+        { status: 404 }
+      );
+    }
+    
+    console.log(`📁 파일 ${files.length}개 발견`);
+    
+    // 2. 현재 시간에 발행할 카테고리의 파일만 필터링
+    const targetFiles = files.filter(file => {
+      const category = extractCategoryFromFileName(file.name!);
+      return categories.includes(category);
+    });
+    
+    console.log(`🎯 발행 대상 파일 ${targetFiles.length}개:`, targetFiles.map(f => f.name));
+    
     const results = [];
     
-    for (const news of newsToPublish) {
-      // 이미 발행된 뉴스는 건너뛰기
-      if (publishedNews.has(news.id)) {
-        results.push({
-          id: news.id,
-          title: news.title,
-          category: news.category,
-          success: false,
-          error: '이미 발행된 뉴스입니다.',
-        });
-        continue;
-      }
-      
+    // 3. 각 파일 처리: AI 재작성 → WordPress 발행
+    for (const file of targetFiles) {
       try {
+        // 이미 발행된 뉴스는 건너뛰기
+        if (publishedNews.has(file.id!)) {
+          console.log(`⏭️  이미 발행됨: ${file.name}`);
+          results.push({
+            id: file.id,
+            fileName: file.name,
+            success: false,
+            error: '이미 발행된 뉴스입니다.',
+          });
+          continue;
+        }
+        
+        const originalContent = await getFileContent(drive, file.id!);
+        const originalTitle = file.name!.replace('.txt', '');
+        const category = extractCategoryFromFileName(file.name!);
+        
+        console.log(`🤖 AI 재작성 중: ${originalTitle} (${category})`);
+        
+        // AI로 재작성
+        const rewritten = await rewriteNewsContent(
+          originalTitle,
+          originalContent,
+          category
+        );
+        
+        const newsItem: NewsItem = {
+          id: file.id!,
+          title: rewritten.title,
+          content: rewritten.content,
+          category,
+          originalTitle,
+          originalContent,
+          summary: rewritten.summary,
+          investmentTip: rewritten.investmentTip,
+        };
+        
+        console.log(`✅ AI 재작성 완료: ${rewritten.title}`);
+        
         // WordPress에 발행
+        console.log(`📝 WordPress 발행 중...`);
         const result = await publishToWordPress({
-          title: news.title,
-          content: formatContentForWordPress(news),
+          title: newsItem.title,
+          content: formatContentForWordPress(newsItem),
           status: 'publish',
-          excerpt: news.summary || '',
+          excerpt: newsItem.summary || '',
         });
         
         if (result.success) {
           // 발행 성공 - 메모리에 기록
-          publishedNews.add(news.id);
+          publishedNews.add(file.id!);
+          
+          console.log(`✅ 발행 성공: ${result.url}`);
           
           results.push({
-            id: news.id,
-            title: news.title,
-            category: news.category,
-            categoryLabel: getCategoryLabel(news.category),
+            id: file.id,
+            fileName: file.name,
+            title: newsItem.title,
+            category,
+            categoryLabel: getCategoryLabel(category),
             success: true,
             url: result.url,
           });
         } else {
+          console.error(`❌ 발행 실패: ${result.error}`);
           results.push({
-            id: news.id,
-            title: news.title,
-            category: news.category,
+            id: file.id,
+            fileName: file.name,
+            title: newsItem.title,
+            category,
             success: false,
             error: result.error,
           });
@@ -129,11 +291,10 @@ export async function POST() {
         await new Promise(resolve => setTimeout(resolve, 2000));
         
       } catch (error) {
-        console.error(`뉴스 발행 실패 (${news.id}):`, error);
+        console.error(`❌ 파일 처리 실패 (${file.name}):`, error);
         results.push({
-          id: news.id,
-          title: news.title,
-          category: news.category,
+          id: file.id,
+          fileName: file.name,
           success: false,
           error: error instanceof Error ? error.message : 'Unknown error',
         });
@@ -142,15 +303,18 @@ export async function POST() {
     
     const successCount = results.filter(r => r.success).length;
     
+    console.log(`\n🎉 발행 완료: ${successCount}/${results.length}개 성공\n`);
+    
     return NextResponse.json({
       message: `${successCount}/${results.length}개 뉴스 발행 완료`,
       currentTime: now.toISOString(),
       currentHour: hour,
+      categories,
       totalPublished: successCount,
       results,
     });
   } catch (error) {
-    console.error('발행 오류:', error);
+    console.error('❌ 발행 오류:', error);
     return NextResponse.json(
       {
         error: '발행 중 오류가 발생했습니다.',

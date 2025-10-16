@@ -23,29 +23,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       
-      - name: Prepare News with AI
-        run: |
-          echo "📝 Preparing news with AI rewriting..."
-          VERCEL_URL="https://www.economynews.app"
-          
-          response=$(curl -s -w "\n%{http_code}" -X POST \
-            "$VERCEL_URL/api/schedule" \
-            -H "Content-Type: application/json" \
-            -d '{"action":"prepare"}')
-          
-          http_code=$(echo "$response" | tail -n1)
-          body=$(echo "$response" | head -n-1)
-          
-          echo "Response: $body"
-          echo "HTTP Status: $http_code"
-          
-          if [ "$http_code" -eq 200 ]; then
-            echo "✅ News prepared successfully"
-          else
-            echo "❌ Failed to prepare news"
-            exit 1
-          fi
-      
       - name: Publish News to WordPress
         run: |
           echo "🚀 Publishing news to WordPress..."
