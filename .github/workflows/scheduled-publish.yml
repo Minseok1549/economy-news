@@ -23,15 +23,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       
-      - name: Call Vercel Cron API
-        env:
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
-          VERCEL_URL: ${{ secrets.VERCEL_URL }}
+      - name: Publish News to WordPress
         run: |
-          echo "🚀 Publishing news..."
-          response=$(curl -s -w "\n%{http_code}" -X GET \
-            "$VERCEL_URL/api/cron" \
-            -H "Authorization: Bearer $CRON_SECRET")
+          echo "🚀 Publishing news to WordPress..."
+          VERCEL_URL="https://www.economynews.app"
+          
+          response=$(curl -s -w "\n%{http_code}" -X POST \
+            "$VERCEL_URL/api/publish" \
+            -H "Content-Type: application/json")
           
           http_code=$(echo "$response" | tail -n1)
           body=$(echo "$response" | head -n-1)
