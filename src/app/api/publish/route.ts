@@ -18,9 +18,6 @@ interface DriveFile {
   modifiedTime?: string;
 }
 
-// 발행된 뉴스를 추적하기 위한 메모리 저장소
-const publishedNews: Set<string> = new Set();
-
 // Google Drive 클라이언트 초기화
 async function getDriveService() {
   let privateKey: string;
@@ -99,11 +96,11 @@ async function getCardTextFiles(drive: any, folderId: string): Promise<DriveFile
     const response = await drive.files.list({
       q: `'${folderId}' in parents and mimeType='text/plain' and trashed=false`,
       fields: 'files(id,name,modifiedTime)',
-      orderBy: 'modifiedTime desc',
+      orderBy: 'modifiedTime asc',  // 오래된 파일부터 (생성 순서대로)
     });
 
     const files = response.data.files || [];
-    // _card.txt가 붙지 않은 .txt 파일만 가져오기
+    // _card.txt가 붙지 않은 .txt 파일만 가져오기 (_published 포함)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return files.filter((file: any) => file.name && file.name.endsWith('.txt') && !file.name.endsWith('_card.txt'));
   } catch (error) {
@@ -157,16 +154,6 @@ export async function POST() {
   try {
     const now = new Date();
     const hour = now.getHours();
-    const categories = getPublishCategoriesForTime(now);
-    
-    if (categories.length === 0) {
-      return NextResponse.json({
-        message: '현재 시간에 발행할 뉴스가 없습니다.',
-        currentTime: now.toISOString(),
-        currentHour: hour,
-        totalPublished: 0,
-      });
-    }
     
     console.log(`📅 발행 요청 - 시간: ${hour}시 ${now.getMinutes()}분`);
     
@@ -198,10 +185,15 @@ export async function POST() {
       );
     }
     
-    console.log(`📁 파일 ${files.length}개 발견`);
+    console.log(`📁 전체 파일 ${files.length}개 발견`);
     
-    // 2. 아직 발행하지 않은 파일 찾기 (카테고리 순서대로)
-    const unpublishedFiles = files.filter(file => !publishedNews.has(file.id!));
+    // 2. 아직 발행하지 않은 파일 찾기 (_published가 없는 파일)
+    // 파일명에 _published가 포함되지 않은 파일만 필터링
+    const unpublishedFiles = files.filter(file => 
+      !file.name?.includes('_published')
+    );
+    
+    console.log(`📰 미발행 파일 ${unpublishedFiles.length}개`);
     
     if (unpublishedFiles.length === 0) {
       return NextResponse.json({
@@ -209,6 +201,7 @@ export async function POST() {
         currentTime: now.toISOString(),
         currentHour: hour,
         totalPublished: 0,
+        totalRemaining: 0,
       });
     }
     
@@ -254,8 +247,19 @@ export async function POST() {
       });
       
       if (result.success) {
-        // 발행 성공 - 메모리에 기록
-        publishedNews.add(file.id!);
+        // 발행 성공 - Drive 파일명에 _published 추가
+        try {
+          const newFileName = file.name!.replace('.txt', '_published.txt');
+          await drive.files.update({
+            fileId: file.id!,
+            requestBody: {
+              name: newFileName,
+            },
+          });
+          console.log(`📝 파일명 변경: ${file.name} -> ${newFileName}`);
+        } catch (renameError) {
+          console.error('파일명 변경 실패 (발행은 성공):', renameError);
+        }
         
         console.log(`✅ 발행 성공: ${result.url}`);
         
