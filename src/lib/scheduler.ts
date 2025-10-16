@@ -81,23 +81,105 @@ export interface NewsItem {
 /**
  * 파일명에서 카테고리 추출
  * 예: "business_finance_card.txt" -> "business_finance"
+ * 예: "비즈니스금융.txt" -> "business_finance"
  */
 export function extractCategoryFromFileName(fileName: string): Category {
-  const name = fileName.replace('_card.txt', '').replace('.txt', '').toLowerCase();
+  const name = fileName
+    .replace('_card.txt', '')
+    .replace('.txt', '')
+    .toLowerCase()
+    .replace(/[\s_-]+/g, ''); // 공백, 언더스코어, 하이픈 제거
   
-  // 카테고리 매핑
-  if (name.includes('economy') || name.includes('경제')) return 'economy';
-  if (name.includes('business_finance') || name.includes('비즈니스금융')) return 'business_finance';
-  if (name.includes('sports') || name.includes('스포츠')) return 'sports';
-  if (name.includes('culture') || name.includes('문화')) return 'culture';
-  if (name.includes('environment') || name.includes('환경')) return 'environment';
-  if (name.includes('health') || name.includes('건강')) return 'health';
-  if (name.includes('science') || name.includes('과학')) return 'science';
-  if (name.includes('technology') || name.includes('기술')) return 'technology';
-  if (name.includes('politics') || name.includes('정치')) return 'politics';
-  if (name.includes('world') || name.includes('국제')) return 'world_affairs';
+  console.log(`🔍 파일명 분석: "${fileName}" -> 정규화: "${name}"`);
   
-  // 기본값
+  // 카테고리 매핑 (더 구체적인 것부터 먼저 체크)
+  // 비즈니스/금융
+  if (name.includes('businessfinance') || 
+      name.includes('business') || 
+      name.includes('finance') ||
+      name.includes('비즈니스금융') || 
+      name.includes('비즈니스') || 
+      name.includes('금융')) {
+    console.log(`  ✅ 매칭: business_finance`);
+    return 'business_finance';
+  }
+  
+  // 경제
+  if (name.includes('economy') || name.includes('경제')) {
+    console.log(`  ✅ 매칭: economy`);
+    return 'economy';
+  }
+  
+  // 스포츠
+  if (name.includes('sports') || name.includes('스포츠') || name.includes('체육')) {
+    console.log(`  ✅ 매칭: sports`);
+    return 'sports';
+  }
+  
+  // 문화예술
+  if (name.includes('culture') || 
+      name.includes('문화') || 
+      name.includes('예술') ||
+      name.includes('문화예술')) {
+    console.log(`  ✅ 매칭: culture`);
+    return 'culture';
+  }
+  
+  // 환경
+  if (name.includes('environment') || 
+      name.includes('환경') || 
+      name.includes('기후') ||
+      name.includes('생태')) {
+    console.log(`  ✅ 매칭: environment`);
+    return 'environment';
+  }
+  
+  // 건강
+  if (name.includes('health') || 
+      name.includes('건강') || 
+      name.includes('의료') ||
+      name.includes('보건')) {
+    console.log(`  ✅ 매칭: health`);
+    return 'health';
+  }
+  
+  // 과학
+  if (name.includes('science') || name.includes('과학') || name.includes('연구')) {
+    console.log(`  ✅ 매칭: science`);
+    return 'science';
+  }
+  
+  // 기술/IT
+  if (name.includes('technology') || 
+      name.includes('tech') ||
+      name.includes('기술') || 
+      name.includes('테크') ||
+      name.includes('it')) {
+    console.log(`  ✅ 매칭: technology`);
+    return 'technology';
+  }
+  
+  // 정치
+  if (name.includes('politics') || 
+      name.includes('정치') || 
+      name.includes('정부') ||
+      name.includes('국회')) {
+    console.log(`  ✅ 매칭: politics`);
+    return 'politics';
+  }
+  
+  // 국제정세
+  if (name.includes('world') || 
+      name.includes('global') ||
+      name.includes('국제') || 
+      name.includes('세계') ||
+      name.includes('해외')) {
+    console.log(`  ✅ 매칭: world_affairs`);
+    return 'world_affairs';
+  }
+  
+  // 기본값 - 매칭 실패 시 경고
+  console.warn(`  ⚠️  카테고리 매칭 실패! 기본값(economy) 사용. 원본 파일명: "${fileName}"`);
   return 'economy';
 }
 
