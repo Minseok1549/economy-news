@@ -27,10 +27,10 @@ export interface ScheduleConfig {
 
 // 발행 스케줄 설정 (UTC 시간 기준, 한국시간 -9시간)
 export const PUBLISH_SCHEDULE: ScheduleConfig[] = [
-  { hour: 6, categories: ['economy', 'business_finance', 'sports'] },         // UTC 06:00 = 한국시간 15:00 (오후 3시)
+  { hour: 6, categories: ['technology', 'politics', 'world_affairs'] },      // UTC 06:00 = 한국시간 15:00 (오후 3시)
   { hour: 9, categories: ['culture', 'environment'] },                         // UTC 09:00 = 한국시간 18:00 (오후 6시)
   { hour: 11, categories: ['health', 'science'] },                            // UTC 11:00 = 한국시간 20:00 (오후 8시)
-  { hour: 13, categories: ['technology', 'politics', 'world_affairs'] },      // UTC 13:00 = 한국시간 22:00 (오후 10시)
+  { hour: 13, categories: ['economy', 'business_finance', 'sports'] },         // UTC 13:00 = 한국시간 22:00 (오후 10시)
 ];
 
 export interface NewsItem {
