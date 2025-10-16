@@ -1,0 +1,53 @@
+name: Scheduled News Publishing
+
+on:
+  schedule:
+    # UTC 기준으로 설정 (한국시간 - 9시간)
+    # 한국시간 14:00 = UTC 05:00
+    - cron: '0 5 * * *'   # 오후 2시
+    # 한국시간 18:00 = UTC 09:00
+    - cron: '0 9 * * *'   # 오후 6시
+    # 한국시간 20:00 = UTC 11:00
+    - cron: '0 11 * * *'  # 오후 8시
+    # 한국시간 22:00 = UTC 13:00
+    - cron: '0 13 * * *'  # 오후 10시
+  
+  # 수동 실행도 가능하도록
+  workflow_dispatch:
+
+jobs:
+  publish-news:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Call Vercel Cron API
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          VERCEL_URL: ${{ secrets.VERCEL_URL }}
+        run: |
+          echo "🚀 Publishing news..."
+          response=$(curl -s -w "\n%{http_code}" -X GET \
+            "$VERCEL_URL/api/cron" \
+            -H "Authorization: Bearer $CRON_SECRET")
+          
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | head -n-1)
+          
+          echo "Response: $body"
+          echo "HTTP Status: $http_code"
+          
+          if [ "$http_code" -eq 200 ]; then
+            echo "✅ News published successfully"
+          else
+            echo "❌ Failed to publish news"
+            exit 1
+          fi
+      
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "⚠️ Scheduled publishing failed!"
+          # 여기에 Slack/Discord 알림 추가 가능
