@@ -32,7 +32,7 @@ export async function GET() {
       currentHour: now.getHours(),
       categories: categories,
       totalNews: newsToPublish.length,
-      news: newsToPublish.map((news: any) => ({
+      news: newsToPublish.map((news) => ({
         id: news.id,
         title: news.title,
         category: news.category,
