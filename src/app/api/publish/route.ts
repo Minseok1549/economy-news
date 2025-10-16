@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { getPublishCategoriesForTime, getCategoryLabel, type NewsItem } from '@/lib/scheduler';
 import { publishToWordPress } from '@/lib/tistory';
 
