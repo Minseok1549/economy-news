@@ -168,7 +168,7 @@ export async function POST() {
       });
     }
     
-    console.log(`📅 발행 시작 - 시간: ${hour}시, 카테고리:`, categories);
+    console.log(`📅 발행 요청 - 시간: ${hour}시 ${now.getMinutes()}분`);
     
     // 1. Google Drive에서 오늘의 뉴스 가져오기
     const drive = await getDriveService();
@@ -200,73 +200,72 @@ export async function POST() {
     
     console.log(`📁 파일 ${files.length}개 발견`);
     
-    // 2. 현재 시간에 발행할 카테고리의 파일만 필터링
-    const targetFiles = files.filter(file => {
+    // 2. 아직 발행하지 않은 파일 찾기 (카테고리 순서대로)
+    const unpublishedFiles = files.filter(file => !publishedNews.has(file.id!));
+    
+    if (unpublishedFiles.length === 0) {
+      return NextResponse.json({
+        message: '모든 뉴스가 이미 발행되었습니다.',
+        currentTime: now.toISOString(),
+        currentHour: hour,
+        totalPublished: 0,
+      });
+    }
+    
+    // 3. 첫 번째 미발행 파일 하나만 선택
+    const file = unpublishedFiles[0];
+    console.log(`🎯 발행 대상: ${file.name}`);
+    
+    // 4. 파일 처리: AI 재작성 → WordPress 발행
+    try {
+      const originalContent = await getFileContent(drive, file.id!);
+      const originalTitle = file.name!.replace('.txt', '');
       const category = extractCategoryFromFileName(file.name!);
-      return categories.includes(category);
-    });
-    
-    console.log(`🎯 발행 대상 파일 ${targetFiles.length}개:`, targetFiles.map(f => f.name));
-    
-    const results = [];
-    
-    // 3. 각 파일 처리: AI 재작성 → WordPress 발행
-    for (const file of targetFiles) {
-      try {
-        // 이미 발행된 뉴스는 건너뛰기
-        if (publishedNews.has(file.id!)) {
-          console.log(`⏭️  이미 발행됨: ${file.name}`);
-          results.push({
-            id: file.id,
-            fileName: file.name,
-            success: false,
-            error: '이미 발행된 뉴스입니다.',
-          });
-          continue;
-        }
+      
+      console.log(`🤖 AI 재작성 중: ${originalTitle} (${category})`);
+      
+      // AI로 재작성
+      const rewritten = await rewriteNewsContent(
+        originalTitle,
+        originalContent,
+        category
+      );
+      
+      const newsItem: NewsItem = {
+        id: file.id!,
+        title: rewritten.title,
+        content: rewritten.content,
+        category,
+        originalTitle,
+        originalContent,
+        summary: rewritten.summary,
+        investmentTip: rewritten.investmentTip,
+      };
+      
+      console.log(`✅ AI 재작성 완료: ${rewritten.title}`);
+      
+      // WordPress에 발행
+      console.log(`📝 WordPress 발행 중...`);
+      const result = await publishToWordPress({
+        title: newsItem.title,
+        content: formatContentForWordPress(newsItem),
+        status: 'publish',
+        excerpt: newsItem.summary || '',
+      });
+      
+      if (result.success) {
+        // 발행 성공 - 메모리에 기록
+        publishedNews.add(file.id!);
         
-        const originalContent = await getFileContent(drive, file.id!);
-        const originalTitle = file.name!.replace('.txt', '');
-        const category = extractCategoryFromFileName(file.name!);
+        console.log(`✅ 발행 성공: ${result.url}`);
         
-        console.log(`🤖 AI 재작성 중: ${originalTitle} (${category})`);
-        
-        // AI로 재작성
-        const rewritten = await rewriteNewsContent(
-          originalTitle,
-          originalContent,
-          category
-        );
-        
-        const newsItem: NewsItem = {
-          id: file.id!,
-          title: rewritten.title,
-          content: rewritten.content,
-          category,
-          originalTitle,
-          originalContent,
-          summary: rewritten.summary,
-          investmentTip: rewritten.investmentTip,
-        };
-        
-        console.log(`✅ AI 재작성 완료: ${rewritten.title}`);
-        
-        // WordPress에 발행
-        console.log(`📝 WordPress 발행 중...`);
-        const result = await publishToWordPress({
-          title: newsItem.title,
-          content: formatContentForWordPress(newsItem),
-          status: 'publish',
-          excerpt: newsItem.summary || '',
-        });
-        
-        if (result.success) {
-          // 발행 성공 - 메모리에 기록
-          publishedNews.add(file.id!);
-          
-          console.log(`✅ 발행 성공: ${result.url}`);
-          
-          results.push({
+        return NextResponse.json({
+          message: '뉴스 발행 완료',
+          currentTime: now.toISOString(),
+          currentHour: hour,
+          totalPublished: 1,
+          totalRemaining: unpublishedFiles.length - 1,
+          result: {
             id: file.id,
             fileName: file.name,
             title: newsItem.title,
@@ -274,45 +273,38 @@ export async function POST() {
             categoryLabel: getCategoryLabel(category),
             success: true,
             url: result.url,
-          });
-        } else {
-          console.error(`❌ 발행 실패: ${result.error}`);
-          results.push({
+          },
+        });
+      } else {
+        console.error(`❌ 발행 실패: ${result.error}`);
+        return NextResponse.json({
+          message: '뉴스 발행 실패',
+          currentTime: now.toISOString(),
+          currentHour: hour,
+          totalPublished: 0,
+          totalRemaining: unpublishedFiles.length,
+          result: {
             id: file.id,
             fileName: file.name,
             title: newsItem.title,
             category,
             success: false,
             error: result.error,
-          });
-        }
-        
-        // API 레이트 리밋 방지
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-      } catch (error) {
-        console.error(`❌ 파일 처리 실패 (${file.name}):`, error);
-        results.push({
-          id: file.id,
-          fileName: file.name,
-          success: false,
-          error: error instanceof Error ? error.message : 'Unknown error',
+          },
         });
       }
+      
+    } catch (error) {
+      console.error(`❌ 파일 처리 실패 (${file.name}):`, error);
+      return NextResponse.json(
+        {
+          error: '뉴스 처리 중 오류가 발생했습니다.',
+          fileName: file.name,
+          details: error instanceof Error ? error.message : 'Unknown error',
+        },
+        { status: 500 }
+      );
     }
-    
-    const successCount = results.filter(r => r.success).length;
-    
-    console.log(`\n🎉 발행 완료: ${successCount}/${results.length}개 성공\n`);
-    
-    return NextResponse.json({
-      message: `${successCount}/${results.length}개 뉴스 발행 완료`,
-      currentTime: now.toISOString(),
-      currentHour: hour,
-      categories,
-      totalPublished: successCount,
-      results,
-    });
   } catch (error) {
     console.error('❌ 발행 오류:', error);
     return NextResponse.json(

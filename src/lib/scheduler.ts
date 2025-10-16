@@ -1,6 +1,6 @@
 /**
  * 뉴스 발행 스케줄러
- * 매일 15시, 18시, 20시, 22시에 각각 3개, 2개, 3개, 2개의 뉴스를 발행
+ * 매일 오후 2시부터 30분~1시간30분 간격으로 랜덤하게 10개 기사를 하나씩 발행
  */
 
 // Firebase imports removed - not using database storage
@@ -22,16 +22,50 @@ export type Category = (typeof CATEGORIES)[number];
 
 export interface ScheduleConfig {
   hour: number;
+  minute: number;
   categories: Category[];
 }
 
-// 발행 스케줄 설정 (UTC 시간 기준, 한국시간 -9시간)
-export const PUBLISH_SCHEDULE: ScheduleConfig[] = [
-  { hour: 6, categories: ['technology', 'politics', 'world_affairs'] },      // UTC 06:00 = 한국시간 15:00 (오후 3시)
-  { hour: 9, categories: ['culture', 'environment'] },                         // UTC 09:00 = 한국시간 18:00 (오후 6시)
-  { hour: 11, categories: ['health', 'science'] },                            // UTC 11:00 = 한국시간 20:00 (오후 8시)
-  { hour: 13, categories: ['economy', 'business_finance', 'sports'] },         // UTC 13:00 = 한국시간 22:00 (오후 10시)
-];
+/**
+ * 오후 2시(14:00 KST = 05:00 UTC)부터 시작해서 
+ * 30~90분 간격으로 10개 기사를 하나씩 발행하는 스케줄 생성
+ */
+function generateRandomSchedule(): ScheduleConfig[] {
+  const schedule: ScheduleConfig[] = [];
+  let currentMinutes = 5 * 60; // UTC 05:00 = 한국시간 14:00 (오후 2시)
+  
+  // 카테고리 순서를 랜덤하게 섞기
+  const shuffledCategories = [...CATEGORIES].sort(() => Math.random() - 0.5);
+  
+  for (let i = 0; i < shuffledCategories.length; i++) {
+    const hour = Math.floor(currentMinutes / 60);
+    const minute = currentMinutes % 60;
+    
+    schedule.push({
+      hour,
+      minute,
+      categories: [shuffledCategories[i]],
+    });
+    
+    // 다음 발행까지 30~90분 랜덤 간격 (마지막 기사는 제외)
+    if (i < shuffledCategories.length - 1) {
+      const randomInterval = Math.floor(Math.random() * 61) + 30; // 30~90분
+      currentMinutes += randomInterval;
+    }
+  }
+  
+  return schedule;
+}
+
+// 서버 시작 시 한 번만 생성 (매 요청마다 바뀌지 않도록)
+export const PUBLISH_SCHEDULE: ScheduleConfig[] = generateRandomSchedule();
+
+// 디버깅용 - 생성된 스케줄 출력
+console.log('📅 생성된 발행 스케줄:');
+PUBLISH_SCHEDULE.forEach((s, i) => {
+  const kstHour = (s.hour + 9) % 24;
+  console.log(`  ${i + 1}. UTC ${String(s.hour).padStart(2, '0')}:${String(s.minute).padStart(2, '0')} (KST ${String(kstHour).padStart(2, '0')}:${String(s.minute).padStart(2, '0')}) - ${s.categories[0]}`);
+});
 
 export interface NewsItem {
   id: string;
@@ -93,12 +127,43 @@ export function getNextPublishTime(): Date {
 }
 
 /**
- * 특정 시간대의 발행 카테고리 가져오기
+ * 특정 시간대의 발행 카테고리 가져오기 (분 단위까지 체크)
  */
 export function getPublishCategoriesForTime(date: Date): Category[] {
   const hour = date.getHours();
-  const schedule = PUBLISH_SCHEDULE.find(s => s.hour === hour);
+  const minute = date.getMinutes();
+  
+  // 정확한 시간(±5분 오차 허용)
+  const schedule = PUBLISH_SCHEDULE.find(s => 
+    s.hour === hour && Math.abs(s.minute - minute) <= 5
+  );
+  
   return schedule?.categories || [];
+}
+
+/**
+ * 현재 시간에 가장 가까운 발행 스케줄 찾기 (GitHub Actions cron은 정확하지 않을 수 있음)
+ */
+export function getClosestPublishCategories(date: Date): Category[] {
+  const hour = date.getHours();
+  const minute = date.getMinutes();
+  const currentMinutes = hour * 60 + minute;
+  
+  // 가장 가까운 스케줄 찾기 (최대 30분 차이까지 허용)
+  let closestSchedule = null;
+  let minDiff = Infinity;
+  
+  for (const schedule of PUBLISH_SCHEDULE) {
+    const scheduleMinutes = schedule.hour * 60 + schedule.minute;
+    const diff = Math.abs(currentMinutes - scheduleMinutes);
+    
+    if (diff < minDiff && diff <= 30) {
+      minDiff = diff;
+      closestSchedule = schedule;
+    }
+  }
+  
+  return closestSchedule?.categories || [];
 }
 
 /**

@@ -2,15 +2,8 @@ name: Scheduled News Publishing
 
 on:
   schedule:
-    # UTC 기준으로 설정 (한국시간 - 9시간)
-    # 한국시간 14:00 = UTC 05:00
-    - cron: '0 5 * * *'   # 오후 2시
-    # 한국시간 18:00 = UTC 09:00
-    - cron: '0 9 * * *'   # 오후 6시
-    # 한국시간 20:00 = UTC 11:00
-    - cron: '0 11 * * *'  # 오후 8시
-    # 한국시간 22:00 = UTC 13:00
-    - cron: '0 13 * * *'  # 오후 10시
+    # 매일 오후 2시(한국시간 14:00 = UTC 05:00)에 시작
+    - cron: '0 5 * * *'
   
   # 수동 실행도 가능하도록
   workflow_dispatch:
@@ -23,27 +16,54 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       
-      - name: Publish News to WordPress
+      - name: Publish All News with Random Intervals
         run: |
-          echo "🚀 Publishing news to WordPress..."
+          echo "🚀 Starting scheduled news publishing..."
+          echo "📅 Publishing 10 articles with 30-90 minute random intervals"
           VERCEL_URL="https://www.economynews.app"
           
-          response=$(curl -s -w "\n%{http_code}" -X POST \
-            "$VERCEL_URL/api/publish" \
-            -H "Content-Type: application/json")
+          # 10개 기사를 순차적으로 발행
+          for i in {1..10}; do
+            echo ""
+            echo "========================================="
+            echo "📰 Publishing article $i/10..."
+            echo "========================================="
+            
+            response=$(curl -s -w "\n%{http_code}" -X POST \
+              "$VERCEL_URL/api/publish" \
+              -H "Content-Type: application/json")
+            
+            http_code=$(echo "$response" | tail -n1)
+            body=$(echo "$response" | head -n-1)
+            
+            echo "Response: $body"
+            echo "HTTP Status: $http_code"
+            
+            if [ "$http_code" -eq 200 ]; then
+              echo "✅ Article $i published successfully"
+            else
+              echo "❌ Failed to publish article $i"
+              # 실패해도 계속 진행
+            fi
+            
+            # 마지막 기사가 아니면 30~90분 대기 (초 단위)
+            if [ $i -lt 10 ]; then
+              # 30~90분 사이 랜덤 (1800~5400초)
+              wait_seconds=$((RANDOM % 3601 + 1800))
+              wait_minutes=$((wait_seconds / 60))
+              
+              echo ""
+              echo "⏰ Waiting $wait_minutes minutes before next article..."
+              echo "   ($(date '+%Y-%m-%d %H:%M:%S'))"
+              
+              sleep $wait_seconds
+            fi
+          done
           
-          http_code=$(echo "$response" | tail -n1)
-          body=$(echo "$response" | head -n-1)
-          
-          echo "Response: $body"
-          echo "HTTP Status: $http_code"
-          
-          if [ "$http_code" -eq 200 ]; then
-            echo "✅ News published successfully"
-          else
-            echo "❌ Failed to publish news"
-            exit 1
-          fi
+          echo ""
+          echo "========================================="
+          echo "🎉 All articles published!"
+          echo "========================================="
       
       - name: Notify on failure
         if: failure()
