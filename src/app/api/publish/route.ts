@@ -2,10 +2,11 @@ import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
 import { rewriteNewsContent } from '@/lib/ai';
 import { 
-  getPublishCategoriesForTime, 
+  CATEGORIES,
   getCategoryLabel, 
   extractCategoryFromFileName,
-  type NewsItem 
+  type NewsItem,
+  type Category
 } from '@/lib/scheduler';
 import { publishToWordPress } from '@/lib/tistory';
 
@@ -17,6 +18,9 @@ interface DriveFile {
   name: string;
   modifiedTime?: string;
 }
+
+// 발행 순서 추적 (0부터 시작, 매일 초기화됨)
+let publishIndex = 0;
 
 // Google Drive 클라이언트 초기화
 async function getDriveService() {
@@ -125,18 +129,22 @@ async function getFileContent(drive: any, fileId: string): Promise<string> {
 }
 
 /**
- * GET /api/publish - 현재 시간에 발행할 카테고리 조회
+ * GET /api/publish - 현재 발행 상태 조회
  */
 export async function GET() {
   try {
     const now = new Date();
-    const categories = getPublishCategoriesForTime(now);
+    const currentCategory = CATEGORIES[publishIndex % CATEGORIES.length];
     
     return NextResponse.json({
       currentTime: now.toISOString(),
       currentHour: now.getHours(),
-      categories: categories,
-      categoryLabels: categories.map(cat => getCategoryLabel(cat)),
+      publishIndex: publishIndex,
+      totalPublished: publishIndex,
+      currentCategory: currentCategory,
+      currentCategoryLabel: getCategoryLabel(currentCategory),
+      nextCategory: CATEGORIES[(publishIndex + 1) % CATEGORIES.length],
+      nextCategoryLabel: getCategoryLabel(CATEGORIES[(publishIndex + 1) % CATEGORIES.length]),
     });
   } catch (error) {
     console.error('발행 대상 조회 오류:', error);
@@ -155,7 +163,9 @@ export async function POST() {
     const now = new Date();
     const hour = now.getHours();
     
-    console.log(`📅 발행 요청 - 시간: ${hour}시 ${now.getMinutes()}분`);
+    // 현재 발행할 카테고리 결정 (순환)
+    const currentCategory = CATEGORIES[publishIndex % CATEGORIES.length];
+    console.log(`📅 발행 요청 #${publishIndex + 1} - 카테고리: ${getCategoryLabel(currentCategory)}`);
     
     // 1. Google Drive에서 오늘의 뉴스 가져오기
     const drive = await getDriveService();
@@ -187,26 +197,27 @@ export async function POST() {
     
     console.log(`📁 전체 파일 ${files.length}개 발견`);
     
-    // 2. 아직 발행하지 않은 파일 찾기 (_published가 없는 파일)
-    // 파일명에 _published가 포함되지 않은 파일만 필터링
-    const unpublishedFiles = files.filter(file => 
-      !file.name?.includes('_published')
-    );
+    // 2. 현재 카테고리에 해당하는 파일 찾기
+    const categoryFiles = files.filter(file => {
+      const fileCategory = extractCategoryFromFileName(file.name!);
+      return fileCategory === currentCategory;
+    });
     
-    console.log(`📰 미발행 파일 ${unpublishedFiles.length}개`);
+    console.log(`📰 ${getCategoryLabel(currentCategory)} 파일 ${categoryFiles.length}개 발견`);
     
-    if (unpublishedFiles.length === 0) {
+    if (categoryFiles.length === 0) {
       return NextResponse.json({
-        message: '모든 뉴스가 이미 발행되었습니다.',
+        message: `${getCategoryLabel(currentCategory)} 카테고리 뉴스가 없습니다.`,
         currentTime: now.toISOString(),
         currentHour: hour,
+        category: currentCategory,
+        publishIndex: publishIndex,
         totalPublished: 0,
-        totalRemaining: 0,
       });
     }
     
-    // 3. 첫 번째 미발행 파일 하나만 선택
-    const file = unpublishedFiles[0];
+    // 3. 해당 카테고리의 첫 번째 파일 선택
+    const file = categoryFiles[0];
     console.log(`🎯 발행 대상: ${file.name}`);
     
     // 4. 파일 처리: AI 재작성 → WordPress 발행
@@ -247,28 +258,20 @@ export async function POST() {
       });
       
       if (result.success) {
-        // 발행 성공 - Drive 파일명에 _published 추가
-        try {
-          const newFileName = file.name!.replace('.txt', '_published.txt');
-          await drive.files.update({
-            fileId: file.id!,
-            requestBody: {
-              name: newFileName,
-            },
-          });
-          console.log(`📝 파일명 변경: ${file.name} -> ${newFileName}`);
-        } catch (renameError) {
-          console.error('파일명 변경 실패 (발행은 성공):', renameError);
-        }
+        // 발행 성공 - 인덱스 증가
+        publishIndex++;
         
         console.log(`✅ 발행 성공: ${result.url}`);
+        console.log(`📊 다음 발행: ${getCategoryLabel(CATEGORIES[publishIndex % CATEGORIES.length])}`);
         
         return NextResponse.json({
           message: '뉴스 발행 완료',
           currentTime: now.toISOString(),
           currentHour: hour,
-          totalPublished: 1,
-          totalRemaining: unpublishedFiles.length - 1,
+          publishIndex: publishIndex,
+          totalPublished: publishIndex,
+          totalRemaining: CATEGORIES.length - (publishIndex % CATEGORIES.length),
+          nextCategory: getCategoryLabel(CATEGORIES[publishIndex % CATEGORIES.length]),
           result: {
             id: file.id,
             fileName: file.name,
@@ -285,8 +288,8 @@ export async function POST() {
           message: '뉴스 발행 실패',
           currentTime: now.toISOString(),
           currentHour: hour,
-          totalPublished: 0,
-          totalRemaining: unpublishedFiles.length,
+          publishIndex: publishIndex,
+          totalPublished: publishIndex,
           result: {
             id: file.id,
             fileName: file.name,
