@@ -8,6 +8,7 @@ import {
   PUBLISH_SCHEDULE,
   type NewsItem,
 } from '@/lib/scheduler';
+import { setPreparedNews, getPreparedNews, clearPreparedNews } from '@/lib/newsStore';
 
 const SCOPES = ['https://www.googleapis.com/auth/drive.readonly'];
 const NEWS_SUMMARIES_FOLDER_ID = process.env.NEWS_SUMMARIES_FOLDER_ID;
@@ -124,8 +125,7 @@ async function getFileContent(drive: any, fileId: string): Promise<string> {
   }
 }
 
-// 메모리에 준비된 뉴스 저장 (간단한 인메모리 스토리지)
-const preparedNews: Map<string, NewsItem> = new Map();
+// 메모리에 준비된 뉴스 저장 (newsStore 사용)
 
 /**
  * GET /api/schedule - 현재 스케줄 정보 조회
@@ -144,7 +144,7 @@ export async function GET() {
       nextPublishTime: nextPublishTime.toISOString(),
       nextPublishCategories: publishCategories,
       currentTime: new Date().toISOString(),
-      preparedNewsCount: preparedNews.size,
+      preparedNewsCount: getPreparedNews().size,
     });
   } catch (error) {
     console.error('스케줄 조회 오류:', error);
@@ -184,7 +184,7 @@ export async function POST(request: NextRequest) {
       }
 
       const results = [];
-      preparedNews.clear(); // 기존 데이터 클리어
+      const tempNews: Map<string, NewsItem> = new Map();
       
       // 각 파일 처리
       for (const file of files) {
@@ -219,7 +219,7 @@ export async function POST(request: NextRequest) {
           console.log(`   - summary: ${rewritten.summary?.substring(0, 50)}...`);
           console.log(`   - investmentTip 존재: ${!!rewritten.investmentTip}`);
           
-          preparedNews.set(file.id!, newsItem);
+          tempNews.set(file.id!, newsItem);
           
           results.push({
             id: file.id,
@@ -238,6 +238,9 @@ export async function POST(request: NextRequest) {
           });
         }
       }
+      
+      // 모든 뉴스 처리 완료 후 저장
+      setPreparedNews(tempNews);
       
       return NextResponse.json({
         message: '뉴스 준비 완료',
@@ -263,26 +266,4 @@ export async function POST(request: NextRequest) {
   }
 }
 
-/**
- * 준비된 뉴스를 가져오는 헬퍼 - publish route에서 사용
- * Dynamic import를 통해 접근 가능하도록 global 변수로 노출
- */
-if (typeof global !== 'undefined') {
-  (global as any).__getPreparedNews = () => {
-    const now = new Date();
-    const categories = getPublishCategoriesForTime(now);
-    
-    const newsToPublish: NewsItem[] = [];
-    
-    for (const category of categories) {
-      for (const [, news] of preparedNews) {
-        if (news.category === category) {
-          newsToPublish.push(news);
-          break;
-        }
-      }
-    }
-    
-    return newsToPublish;
-  };
-}
+

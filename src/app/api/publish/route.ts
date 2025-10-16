@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getPublishCategoriesForTime, getCategoryLabel, type NewsItem } from '@/lib/scheduler';
 import { publishToWordPress } from '@/lib/tistory';
+import { getPreparedNews } from '@/lib/newsStore';
 
 // 발행된 뉴스를 추적하기 위한 메모리 저장소
 const publishedNews: Set<string> = new Set();
@@ -14,8 +15,17 @@ export async function GET() {
     const categories = getPublishCategoriesForTime(now);
     
     // /api/schedule에서 준비된 뉴스 가져오기
-    await import('../schedule/route'); // 모듈 로드하여 global 함수 등록
-    const newsToPublish = (global as any).__getPreparedNews();
+    const preparedNews = getPreparedNews();
+    const newsToPublish: NewsItem[] = [];
+    
+    for (const category of categories) {
+      for (const [, news] of preparedNews) {
+        if (news.category === category) {
+          newsToPublish.push(news);
+          break;
+        }
+      }
+    }
     
     return NextResponse.json({
       currentTime: now.toISOString(),
@@ -47,8 +57,18 @@ export async function POST() {
     const hour = now.getHours();
     
     // /api/schedule에서 준비된 뉴스 가져오기
-    await import('../schedule/route'); // 모듈 로드하여 global 함수 등록
-    const newsToPublish = (global as any).__getPreparedNews();
+    const preparedNews = getPreparedNews();
+    const categories = getPublishCategoriesForTime(now);
+    const newsToPublish: NewsItem[] = [];
+    
+    for (const category of categories) {
+      for (const [, news] of preparedNews) {
+        if (news.category === category) {
+          newsToPublish.push(news);
+          break;
+        }
+      }
+    }
     
     if (newsToPublish.length === 0) {
       return NextResponse.json({
