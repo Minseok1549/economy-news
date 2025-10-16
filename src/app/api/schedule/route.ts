@@ -265,8 +265,9 @@ export async function POST(request: NextRequest) {
 
 /**
  * 현재 시간에 맞는 카테고리의 뉴스 가져오기
+ * Internal helper function - not an HTTP route
  */
-export function getNewsForCurrentTime(): NewsItem[] {
+function getNewsForCurrentTime(): NewsItem[] {
   const now = new Date();
   const categories = getPublishCategoriesForTime(now);
   
@@ -284,3 +285,6 @@ export function getNewsForCurrentTime(): NewsItem[] {
   
   return newsToPublish;
 }
+
+// Export for use in publish route
+export { getNewsForCurrentTime };
