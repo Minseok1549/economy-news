@@ -10,6 +10,7 @@ interface Product {
   product_url: string;
   product_price?: number;
   keyword?: string;
+  thumbnail_title?: string;
 }
 
 // 더미 데이터
@@ -20,7 +21,8 @@ const dummyProducts: Product[] = [
     product_image: 'https://thumbnail.coupangcdn.com/thumbnails/remote/492x492ex/image/vendor_inventory/08b1/3ab0321c310696d9819c5bb5dfaba3d481d012070b21d65d5046eec7f42b.jpg',
     product_name: '하우스 랩스 바이 레이디 가가 하이 파워 아이 치크 립 피그먼트 페인트',
     product_price: 65800,
-    product_url: 'https://link.coupang.com/a/cYQDsh'
+    product_url: 'https://link.coupang.com/a/cYQDsh',
+    thumbnail_title: "레이디 가가 픽! 촉촉 물광 블러셔 & 립 조합"
   },
   {
     id: '2',
@@ -28,7 +30,8 @@ const dummyProducts: Product[] = [
     product_image: 'https://thumbnail.coupangcdn.com/thumbnails/remote/492x492ex/image/vendor_inventory/dbfc/2fbfd2dc2ea36e8f0d17f77a90868604aab1cfb6bafe5ad127cf2d026a31.jpg',
     product_name: '하우스랩스 바이 레이디 가가 르 몬스터 립 크레용 비건 립스틱 앤 라이너',
     product_price: 65800,
-    product_url: 'https://link.coupang.com/a/cZrEcy'
+    product_url: 'https://link.coupang.com/a/cZrEcy',
+    thumbnail_title: "레이디 가가 픽! 촉촉 물광 블러셔 & 립 조합"
   },
   {
     id: '3',
@@ -36,7 +39,8 @@ const dummyProducts: Product[] = [
     product_image: 'https://thumbnail.coupangcdn.com/thumbnails/remote/492x492ex/image/vendor_inventory/10e2/e26808d38a8e0e2d67d65ce16bd05a4b434711167ff2acd512bb9196703c.jpg',
     product_name: '하우스 랩스 바이 레이디 가가 미니 PhD 하이브리드 하이드레이팅 틴티드 립 오일',
     product_price: 51000,
-    product_url: 'https://link.coupang.com/a/cZrFE4'
+    product_url: 'https://link.coupang.com/a/cZrFE4',
+    thumbnail_title: "레이디 가가 픽! 촉촉 물광 블러셔 & 립 조합"
   },
 ];
 
@@ -156,7 +160,7 @@ export default function SupplementsPage() {
                       {product.product_name}
                     </p>
                       <p className="text-sm text-gray-500 mt-1">
-                        레이디 가가 픽! 촉촉 블러셔
+                        {product.thumbnail_title}
                       </p>
                   </div>
                 </div>
